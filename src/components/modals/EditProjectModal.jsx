@@ -1,33 +1,34 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { supabase } from "@/configs/supabase.client";
 import { useRouter } from "next/navigation";
-import { useAuth } from "@/context/AuthContextProvider";
 
-export default function CreateProjectDialog() {
-	const [name, setName] = useState("");
-	const [description, setDescription] = useState("");
+export default function EditProjectModal({ onClose, project, onSuccess }) {
+	const [name, setName] = useState(project?.name || "");
+	const [description, setDescription] = useState(project?.description || "");
 	const [loading, setLoading] = useState(false);
-	const { user } = useAuth();
 	const router = useRouter();
 
-	async function handleCreate(e) {
+	async function handleUpdate(e) {
 		e.preventDefault();
+		if (!project?.id) return;
+		
 		setLoading(true);
 
-		const { error } = await supabase.from("projects").insert({
-			name,
-			description,
-			owner: user.id,
-		});
+		const { error } = await supabase
+			.from("projects")
+			.update({
+				name,
+				description,
+			})
+			.eq("id", project.id);
 
 		setLoading(false);
 
 		if (!error) {
-			setName("");
-			setDescription("");
-			document.getElementById("create_project_modal").close();
+			if (onSuccess) onSuccess();
+			if (onClose) onClose();
 			router.refresh();
 		} else {
 			console.error(error);
@@ -35,14 +36,13 @@ export default function CreateProjectDialog() {
 	}
 
 	return (
-		<>
-			<dialog id="create_project_modal" className="modal">
-				<div className="modal-box bg-base-200/95 backdrop-blur-md border border-base-300/30 shadow-xl rounded-xl p-6">
+		<div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50">
+			<div className="modal-box bg-base-200/95 backdrop-blur-md border border-base-300/30 shadow-xl rounded-xl p-6 w-full max-w-md space-y-4 z-10">
 					<h3 className="font-bold text-lg mb-4 tracking-tight">
-						Create New Project
+						Edit Project
 					</h3>
 
-					<form onSubmit={handleCreate} className="space-y-4">
+					<form onSubmit={handleUpdate} className="space-y-4">
 						<div className="space-y-1.5">
 							<label className="label py-0">
 								<span className="label-text text-xs text-base-content/60">Project Name</span>
@@ -75,11 +75,7 @@ export default function CreateProjectDialog() {
 							<button
 								type="button"
 								className="btn btn-sm border border-base-300 btn-ghost rounded-md font-medium text-xs"
-								onClick={() =>
-									document
-										.getElementById("create_project_modal")
-										?.close()
-								}
+								onClick={onClose}
 							>
 								Cancel
 							</button>
@@ -89,17 +85,13 @@ export default function CreateProjectDialog() {
 								className={`btn btn-sm bg-neutral text-neutral-content hover:bg-neutral/90 border-none rounded-md shadow-sm transition-all font-medium text-xs`}
 								disabled={loading}
 							>
-								{loading ? "Creating..." : "Create"}
+								{loading ? "Updating..." : "Update"}
 							</button>
 						</div>
 					</form>
-				</div>
-
-				{/* Backdrop */}
-				<form method="dialog" className="modal-backdrop">
-					<button>close</button>
-				</form>
-			</dialog>
-		</>
+			</div>
+			{/* Backdrop */}
+			<div className="absolute inset-0" onClick={onClose} />
+		</div>
 	);
 }

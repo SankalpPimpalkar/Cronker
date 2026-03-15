@@ -13,8 +13,8 @@ export default function LoginPage() {
 	}
 
 	return (
-		<div className="min-h-screen flex items-center justify-center bg-base-100 px-6">
-			<div className="w-full max-w-md text-center space-y-8">
+		<div className="min-h-screen flex items-center justify-center bg-base-100 px-4">
+			<div className="w-full max-w-md text-center space-y-8 bg-base-200/40 backdrop-blur-md border border-base-300/40 p-8 rounded-2xl shadow-xl">
 				{/* Brand */}
 				<div className="space-y-3">
 					<h1 className="text-4xl font-bold tracking-tight">

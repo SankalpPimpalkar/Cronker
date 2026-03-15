@@ -1,12 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { supabase } from "@/configs/supabase.client";
+import { parseCronExpressionToForm } from "@/lib/cronUtils";
 
-export default function CreateCronJobModal({
+export default function EditCronJobModal({
 	open,
 	onClose,
-	projectId,
+	cronJob,
 	onSuccess,
 }) {
 	const [loading, setLoading] = useState(false);
@@ -22,6 +23,36 @@ export default function CreateCronJobModal({
 		weekday: "1",
 		is_active: true,
 	});
+
+	const [headers, setHeaders] = useState([{ key: "", value: "" }]);
+	const [body, setBody] = useState([{ key: "", value: "" }]);
+
+	const mapObjectToPairs = (obj) => {
+		if (!obj) return [{ key: "", value: "" }];
+		const pairs = Object.entries(obj).map(([key, value]) => ({ key, value }));
+		return pairs.length > 0 ? pairs : [{ key: "", value: "" }];
+	};
+
+	useEffect(() => {
+		if (cronJob && open) {
+			const schedule = parseCronExpressionToForm(cronJob.cron_expression);
+			
+			setForm({
+				name: cronJob.name || "",
+				target_url: cronJob.target_url || "",
+				http_method: cronJob.http_method || "GET",
+				scheduleType: schedule.scheduleType,
+				interval: schedule.interval,
+				time: schedule.time,
+				weekday: schedule.weekday,
+				is_active: cronJob.is_active ?? true,
+			});
+
+			setHeaders(mapObjectToPairs(cronJob.request_headers));
+			setBody(mapObjectToPairs(cronJob.request_body));
+			setErrors({});
+		}
+	}, [cronJob, open]);
 
 	const validateForm = () => {
 		const newErrors = {};
@@ -40,31 +71,22 @@ export default function CreateCronJobModal({
 			}
 		}
 
-		// Interval validation
 		if (form.scheduleType === "interval") {
 			const interval = Number(form.interval);
-
 			if (!interval || interval < 5) {
 				newErrors.interval = "Minimum interval is 5 minutes";
 			}
 		}
 
-		// Validate headers (no empty keys except last row)
 		const headerKeys = headers.map((h) => h.key.trim()).filter(Boolean);
-
 		const uniqueHeaderKeys = new Set(headerKeys);
-
 		if (headerKeys.length !== uniqueHeaderKeys.size) {
 			newErrors.headers = "Duplicate header keys are not allowed";
 		}
 
 		setErrors(newErrors);
-
 		return Object.keys(newErrors).length === 0;
 	};
-
-	const [headers, setHeaders] = useState([{ key: "", value: "" }]);
-	const [body, setBody] = useState([{ key: "", value: "" }]);
 
 	if (!open) return null;
 
@@ -118,9 +140,9 @@ export default function CreateCronJobModal({
 			const bodyObject =
 				form.http_method !== "GET" ? buildObjectFromPairs(body) : null;
 
-			const { error } = await supabase.from("cron_jobs").insert([
-				{
-					project: projectId,
+			const { error } = await supabase
+				.from("cron_jobs")
+				.update({
 					name: form.name.trim(),
 					cron_expression: cronExpression,
 					target_url: form.target_url.trim(),
@@ -128,10 +150,8 @@ export default function CreateCronJobModal({
 					request_headers: headersObject,
 					request_body: bodyObject,
 					is_active: form.is_active,
-					next_run_at: new Date(),
-					last_run_at: null,
-				},
-			]);
+				})
+				.eq("id", cronJob.id);
 
 			if (error) throw error;
 
@@ -139,14 +159,13 @@ export default function CreateCronJobModal({
 			onClose();
 		} catch (err) {
 			console.error(err);
-			setErrors({ submit: "Failed to create cron job" });
+			setErrors({ submit: "Failed to update cron job" });
 		} finally {
 			setLoading(false);
 		}
 	};
 
 	const addHeader = () => setHeaders([...headers, { key: "", value: "" }]);
-
 	const addBodyField = () => setBody([...body, { key: "", value: "" }]);
 
 	const updateHeader = (index, field, value) => {
@@ -164,7 +183,7 @@ export default function CreateCronJobModal({
 	return (
 		<div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50">
 			<div className="bg-base-200/95 backdrop-blur-md border border-base-300/30 shadow-xl p-6 rounded-xl w-full max-w-2xl space-y-4 overflow-y-auto max-h-[90vh]">
-				<h2 className="text-lg font-semibold tracking-tight">Create Cron Job</h2>
+				<h2 className="text-lg font-semibold tracking-tight">Edit Cron Job</h2>
 
 				<div>
 					<input
@@ -223,9 +242,7 @@ export default function CreateCronJobModal({
 
 				{/* Headers */}
 				<div>
-					<label className="text-sm font-medium">
-						Request Headers
-					</label>
+					<label className="text-sm font-medium">Request Headers</label>
 
 					{headers.map((h, i) => (
 						<div key={i} className="flex gap-2 mt-2 items-center">
@@ -260,9 +277,7 @@ export default function CreateCronJobModal({
 						</div>
 					))}
 					{errors.headers && (
-						<p className="text-error text-xs mt-2">
-							{errors.headers}
-						</p>
+						<p className="text-error text-xs mt-2">{errors.headers}</p>
 					)}
 
 					<button
@@ -277,15 +292,10 @@ export default function CreateCronJobModal({
 				{/* Body */}
 				{form.http_method !== "GET" && (
 					<div>
-						<label className="text-sm font-medium">
-							Request Body
-						</label>
+						<label className="text-sm font-medium">Request Body</label>
 
 						{body.map((b, i) => (
-							<div
-								key={i}
-								className="flex gap-2 mt-2 items-center"
-							>
+							<div key={i} className="flex gap-2 mt-2 items-center">
 								<input
 									type="text"
 									placeholder="Key"
@@ -352,10 +362,7 @@ export default function CreateCronJobModal({
 							min="5"
 							value={form.interval}
 							onChange={(e) =>
-								setForm({
-									...form,
-									interval: e.target.value,
-								})
+								setForm({ ...form, interval: e.target.value })
 							}
 							className={`input input-sm h-9 bg-base-100/50 border border-base-300/60 focus:border-neutral-400 focus:outline-none focus:ring-1 focus:ring-neutral-400 w-full rounded-md transition-all text-sm ${
 								errors.interval ? "input-error" : ""
@@ -380,10 +387,7 @@ export default function CreateCronJobModal({
 							<select
 								value={form.weekday}
 								onChange={(e) =>
-									setForm({
-										...form,
-										weekday: e.target.value,
-									})
+									setForm({ ...form, weekday: e.target.value })
 								}
 								className="select select-sm h-9 bg-base-100/50 border border-base-300/60 focus:border-neutral-400 focus:outline-none focus:ring-1 focus:ring-neutral-400 w-1/2 rounded-md transition-all text-sm"
 							>
@@ -414,10 +418,7 @@ export default function CreateCronJobModal({
 						type="checkbox"
 						checked={form.is_active}
 						onChange={(e) =>
-							setForm({
-								...form,
-								is_active: e.target.checked,
-							})
+							setForm({ ...form, is_active: e.target.checked })
 						}
 						className="toggle toggle-sm toggle-neutral"
 					/>
@@ -437,7 +438,7 @@ export default function CreateCronJobModal({
 						disabled={loading}
 						className="btn btn-sm bg-neutral text-neutral-content hover:bg-neutral/90 border-none rounded-md shadow-sm transition-all font-medium text-xs"
 					>
-						{loading ? "Creating..." : "Create"}
+						{loading ? "Updating..." : "Update"}
 					</button>
 				</div>
 				{errors.submit && (

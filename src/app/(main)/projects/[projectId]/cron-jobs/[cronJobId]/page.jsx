@@ -4,8 +4,9 @@ import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { supabase } from "@/configs/supabase.client";
 import JsonViewer from "@/components/ui/JsonViewer";
-import { parseCronExpression } from "../../page";
+import { parseCronExpression } from "@/lib/cronUtils";
 import { RefreshCw } from "lucide-react";
+import EditCronJobModal from "@/components/modals/EditCronJobModal";
 
 export default function CronJobDetails() {
 	const { cronJobId } = useParams();
@@ -18,6 +19,7 @@ export default function CronJobDetails() {
 	const [logsLoading, setLogsLoading] = useState(false);
 	const [deleting, setDeleting] = useState(false);
 	const [showDeleteModal, setShowDeleteModal] = useState(false);
+	const [showEditModal, setShowEditModal] = useState(false);
 
 	const handleDelete = async () => {
 		if (!cronJobId) return;
@@ -97,6 +99,13 @@ export default function CronJobDetails() {
 						</div>
 
 						<div className="flex items-center gap-3">
+							<button
+								onClick={() => setShowEditModal(true)}
+								className="btn btn-sm btn-ghost border border-base-300 rounded-md"
+							>
+								Edit
+							</button>
+
 							<button
 								onClick={() => setShowDeleteModal(true)}
 								className="btn btn-sm bg-error/10 text-error rounded-md hover:bg-error/20"
@@ -199,9 +208,9 @@ export default function CronJobDetails() {
 							<div
 								key={log.id}
 								onClick={() => setSelectedLog(log)}
-								className="cursor-pointer card bg-base-200 border border-base-200 hover:shadow-lg transition rounded-md"
+								className="cursor-pointer group bg-base-200/40 backdrop-blur-sm hover:bg-base-200/80 border border-base-300/40 hover:border-neutral-500/30 rounded-xl p-4 transition-all duration-300 hover:-translate-y-0.5 hover:shadow-md flex flex-row justify-between items-center"
 							>
-								<div className="card-body p-4 flex flex-row justify-between items-center">
+								<div className="flex flex-row justify-between items-center w-full">
 									<div>
 										<p className="text-sm">
 											{new Date(
@@ -235,8 +244,8 @@ export default function CronJobDetails() {
 			</div>
 
 			{selectedLog && (
-				<div className="modal modal-open">
-					<div className="modal-box max-w-4xl bg-base-200">
+				<div className="modal modal-open px-4">
+					<div className="modal-box max-w-4xl bg-base-200/95 backdrop-blur-md border border-base-300/30 shadow-xl rounded-xl p-6">
 						<h3 className="font-bold text-lg mb-6">
 							Execution Details
 						</h3>
@@ -349,6 +358,13 @@ export default function CronJobDetails() {
 					</div>
 				</div>
 			)}
+
+			<EditCronJobModal
+				open={showEditModal}
+				onClose={() => setShowEditModal(false)}
+				cronJob={cronJob}
+				onSuccess={fetchData}
+			/>
 		</div>
 	);
 }

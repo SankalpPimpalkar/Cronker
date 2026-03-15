@@ -3,6 +3,7 @@
 import { useAuth } from "@/context/AuthContextProvider";
 import { supabase } from "@/configs/supabase.client";
 import { useRouter } from "next/navigation";
+import Image from "next/image";
 
 export default function Navbar() {
 	const { user } = useAuth();
@@ -32,9 +33,11 @@ export default function Navbar() {
 								className="btn btn-ghost btn-circle avatar"
 							>
 								<div className="w-10 rounded-full overflow-hidden">
-									<img
+									<Image
 										src={user.user_metadata?.picture}
 										alt={user.user_metadata?.name}
+										className="rounded-full"
+										fill
 									/>
 								</div>
 							</div>
